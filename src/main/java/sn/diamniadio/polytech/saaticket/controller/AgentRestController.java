@@ -8,25 +8,26 @@ import sn.diamniadio.polytech.saaticket.service.QueueService;
 import sn.diamniadio.polytech.saaticket.service.TicketService;
 import sn.diamniadio.polytech.saaticket.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
+import java.util.HashMap;
+import java.util.Map;
 
-@Controller
-@RequestMapping("/agent")
-public class AgentController {
+@RestController
+@RequestMapping("/api/agent")
+@CrossOrigin(origins = "*")
+public class AgentRestController {
     private final QueueService queueService;
     private final TicketService ticketService;
     private final LocationService locationService;
     private final UserService userService;
 
     @Autowired
-    public AgentController(QueueService queueService, TicketService ticketService,
-                           LocationService locationService, UserService userService) {
+    public AgentRestController(QueueService queueService, TicketService ticketService,
+                               LocationService locationService, UserService userService) {
         this.queueService = queueService;
         this.ticketService = ticketService;
         this.locationService = locationService;
@@ -34,7 +35,7 @@ public class AgentController {
     }
 
     @GetMapping("/dashboard")
-    public String dashboard(Model model) {
+    public ResponseEntity<?> getDashboardData() {
         // Get current authentication
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
@@ -51,26 +52,29 @@ public class AgentController {
             // Compter les personnes en attente
             int waitingCount = ticketService.countWaitingTickets(queue.getId());
 
-            model.addAttribute("queue", queue);
-            model.addAttribute("location", location);
-            model.addAttribute("waitingCount", waitingCount);
+            Map<String, Object> response = new HashMap<>();
+            response.put("queue", queue);
+            response.put("location", location);
+            response.put("waitingCount", waitingCount);
+
+            return ResponseEntity.ok(response);
         } else {
             // Gérer le cas où l'utilisateur n'a pas de localisation attribuée
-            model.addAttribute("error", "Aucune localisation attribuée à cet agent");
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Aucune localisation attribuée à cet agent");
+            return ResponseEntity.badRequest().body(error);
         }
-
-        return "agent/dashboard";
     }
 
     @PostMapping("/queue/{id}/next")
-    public String nextClient(@PathVariable Long id) {
-        queueService.incrementCurrentNumber(id);
-        return "redirect:/agent/dashboard";
+    public ResponseEntity<Queue> nextClient(@PathVariable Long id) {
+        Queue updatedQueue = queueService.incrementCurrentNumber(id);
+        return ResponseEntity.ok(updatedQueue);
     }
 
     @PostMapping("/queue/{id}/previous")
-    public String previousClient(@PathVariable Long id) {
-        queueService.decrementCurrentNumber(id);
-        return "redirect:/agent/dashboard";
+    public ResponseEntity<Queue> previousClient(@PathVariable Long id) {
+        Queue updatedQueue = queueService.decrementCurrentNumber(id);
+        return ResponseEntity.ok(updatedQueue);
     }
 }
